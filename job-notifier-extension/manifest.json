@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Real-time Job Notifier",
+  "version": "1.0",
+  "description": "Instantly shows a browser notification when a new job URL is received.",
+  "permissions": [
+    "notifications",
+    "storage",
+    "alarms"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "128": "icon.png"
+  }
+}
