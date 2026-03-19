@@ -1,6 +1,6 @@
 // Poll backend every 5 seconds
 const POLL_INTERVAL_MS = 5000;
-const API_URL = 'http://localhost:3000/latest-job';
+const API_URL = 'https://real-job-trakcer.onrender.com/latest-job';
 
 // Use chrome.alarms for Manifest V3 (setInterval is killed by Chrome!)
 chrome.alarms.create('job-poll-alarm', { periodInMinutes: 0.1 }); // ~6 seconds in developer mode
@@ -17,7 +17,6 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 
 async function checkForNewJobs() {
     try {
-        // Call GET /latest-job AND force bypass browser cache!
         const response = await fetch(API_URL, { cache: 'no-store' });
 
         if (!response.ok) {
@@ -26,55 +25,45 @@ async function checkForNewJobs() {
 
         const data = await response.json();
 
-        // Grab URL safely, whether it's under data.job.url or data.url directly
-        const newJobUrl = data.job ? data.job.url : data.url;
-        console.log("Polled API. Checked URL:", newJobUrl, "Data:", data);
+        const jobs = data.jobs || []; // array of job URLs
 
-        // Check if we received a valid job URL
-        if (data.success && newJobUrl) {
+        if (data.success && jobs.length > 0) {
 
-            // Get the last stored URL from local storage to avoid duplicate notifications
-            const store = await chrome.storage.local.get('lastJobUrl');
-            console.log("Stored URL:", store);
-            const lastJobUrl = store?.lastJobUrl;
-            console.log("Last Job URL:", lastJobUrl);
-            console.log("New Job URL:", newJobUrl);
+            const store = await chrome.storage.local.get('seenJobs');
+            let seenJobs = store.seenJobs || [];
 
-            // If new job URL is different from last stored:
-            if (newJobUrl !== lastJobUrl && newJobUrl) {
-                console.log(`New job found! Notifying user: ${newJobUrl}`);
+            console.log("Seen Jobs:", seenJobs);
+            console.log("Incoming Jobs:", jobs);
 
-                // Generate a unique ID so Windows/Chrome NEVER suppress it as a duplicate!
-                const notificationId = newJobUrl + "||" + Date.now();
-                try {
+            for (const jobUrl of jobs) {
+
+                if (!seenJobs.includes(jobUrl)) {
+
+                    console.log("New Job Found:", jobUrl);
+
+                    const notificationId = jobUrl + "||" + Date.now();
+
                     chrome.notifications.create(notificationId, {
                         type: 'basic',
                         iconUrl: 'icon.png',
                         title: 'New Job Alert 🚀',
-                        message: `New matching job found:\n${newJobUrl}`,
+                        message: `New job:\n${jobUrl}`,
                         priority: 1,
-                        requireInteraction: true // Keeps the popup alive until you click/close it
-                    }, (createdId) => {
-                        if (chrome.runtime.lastError) {
-                            console.error("Critical Notification Error:", chrome.runtime.lastError.message);
-                        } else {
-                            console.log("Notification POPPED cleanly! ID:", createdId);
-                        }
+                        requireInteraction: true
                     });
-                    await chrome.storage.local.set({ lastJobUrl: newJobUrl });
-                }
-                catch (error) {
-                    console.error("Error showing notification:", error);
-                }
-                // Show Chrome notification
 
-
+                    // mark as seen
+                    seenJobs.push(jobUrl);
+                }
             }
-            // Store last URL safely so it doesn't notify again immediately next poll.
+
+            // save updated list
+            await chrome.storage.local.set({ seenJobs });
 
         }
+
     } catch (error) {
-        console.error('Error fetching latest job:', error);
+        console.error('Error fetching jobs:', error);
     }
 }
 

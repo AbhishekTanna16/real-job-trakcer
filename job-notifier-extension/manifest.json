@@ -9,7 +9,7 @@
     "alarms"
   ],
   "host_permissions": [
-    "http://localhost:3000/*"
+    "https://real-job-trakcer.onrender.com/*"
   ],
   "background": {
     "service_worker": "background.js"
